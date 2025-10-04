@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ELIXIR X2O - Reward Platform</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.1/ethers.umd.min.js"></script>
-    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.10.1/dist/umd/index.min.js"></script>
     <style>
         :root {
             --primary: #8B5CF6;
@@ -258,6 +258,53 @@
             word-break: break-all;
         }
 
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--dark);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            border: 2px solid var(--primary);
+        }
+
+        .modal h3 {
+            color: var(--secondary);
+            margin-bottom: 20px;
+        }
+
+        .qr-code {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .modal-close {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -355,6 +402,16 @@
         </div>
     </div>
 
+    <!-- WalletConnect Modal -->
+    <div id="walletConnectModal" class="modal">
+        <div class="modal-content">
+            <h3>Scan QR Code with WalletConnect</h3>
+            <div id="qrCode" class="qr-code"></div>
+            <p>Scan this QR code with your mobile wallet app</p>
+            <button class="modal-close" onclick="closeWalletConnectModal()">Close</button>
+        </div>
+    </div>
+
     <script>
         // Contract addresses and ABI
         const REWARD_CONTRACT_ADDRESS = '0x3d40486964451466ecb3ba0659eade5964b72082';
@@ -376,14 +433,25 @@
             blockExplorerUrls: ['https://polygonscan.com/']
         };
 
-        // WalletConnect Configuration
+        // WalletConnect v2 Configuration
         const WALLETCONNECT_CONFIG = {
-            rpc: {
-                137: "https://polygon-rpc.com/"
-            },
-            chainId: 137,
-            bridge: "https://bridge.walletconnect.org",
-            qrcode: true
+            projectId: 'c57d14b10834f3c21d67742f5d20f5b2', // Public Project ID for testing
+            chains: [137], // Polygon chain ID
+            showQrModal: false, // We'll handle QR modal ourselves
+            methods: [
+                "eth_sendTransaction",
+                "eth_signTransaction",
+                "eth_sign",
+                "personal_sign",
+                "eth_signTypedData"
+            ],
+            events: ["chainChanged", "accountsChanged"],
+            metadata: {
+                name: "ELIXIR X2O Reward Platform",
+                description: "Collect Poison Chips & Earn ELIXIR X2O Rewards",
+                url: window.location.origin,
+                icons: ["https://photos.pinksale.finance/file/pinksale-logo-upload/1759585455577-acd56ecf144d00796cdd7c3c76348a4c.jpg"]
+            }
         };
 
         // ABI for the reward contract (simplified)
@@ -464,31 +532,44 @@
                 document.getElementById('connectWallet').style.display = 'none';
             }
 
-            // Initialize WalletConnect
-            initWalletConnect();
+            // Check for existing WalletConnect session
+            await checkExistingWalletConnectSession();
         }
 
-        // Initialize WalletConnect
-        function initWalletConnect() {
+        // Check for existing WalletConnect session
+        async function checkExistingWalletConnectSession() {
             try {
-                // WalletConnect will be initialized when user clicks the button
-                console.log('WalletConnect ready for initialization');
+                // Try to initialize WalletConnect provider
+                walletConnectProvider = await EthereumProvider.init(WALLETCONNECT_CONFIG);
+                
+                if (walletConnectProvider.session) {
+                    // Existing session found, connect automatically
+                    await connectWalletConnect();
+                }
             } catch (error) {
-                console.error('Error initializing WalletConnect:', error);
+                console.log('No existing WalletConnect session found');
             }
         }
 
-        // Connect with WalletConnect
+        // Connect with WalletConnect v2
         async function connectWalletConnect() {
             try {
                 document.getElementById('connectWalletConnect').disabled = true;
                 document.getElementById('connectWalletConnect').textContent = 'Connecting...';
 
-                // Initialize WalletConnect Provider
-                walletConnectProvider = new WalletConnectProvider.default(WALLETCONNECT_CONFIG);
+                // Initialize WalletConnect Provider if not already initialized
+                if (!walletConnectProvider) {
+                    walletConnectProvider = await EthereumProvider.init(WALLETCONNECT_CONFIG);
+                }
 
-                // Enable session (triggers QR Code modal)
+                // Show QR code modal
+                showWalletConnectModal();
+
+                // Enable session (triggers QR Code)
                 await walletConnectProvider.enable();
+
+                // Close modal after successful connection
+                closeWalletConnectModal();
 
                 // Create ethers provider from WalletConnect provider
                 provider = new ethers.providers.Web3Provider(walletConnectProvider);
@@ -498,8 +579,9 @@
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
 
-                // Set current chain ID for WalletConnect
-                currentChainId = 137; // WalletConnect is set to Polygon
+                // Set current chain ID
+                currentChainId = await walletConnectProvider.request({ method: 'eth_chainId' });
+                currentChainId = parseInt(currentChainId);
 
                 // Initialize contract
                 rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, REWARD_CONTRACT_ABI, signer);
@@ -531,17 +613,44 @@
                     updateWalletInfo();
                 });
 
-                walletConnectProvider.on("disconnect", (code, reason) => {
-                    console.log("WalletConnect disconnected:", code, reason);
+                walletConnectProvider.on("disconnect", (error) => {
+                    console.log("WalletConnect disconnected:", error);
                     disconnectWallet();
                 });
 
             } catch (error) {
                 console.error('Error connecting with WalletConnect:', error);
+                closeWalletConnectModal();
                 alert('Error connecting with WalletConnect: ' + error.message);
                 document.getElementById('connectWalletConnect').disabled = false;
                 document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
             }
+        }
+
+        // Show WalletConnect QR Modal
+        function showWalletConnectModal() {
+            const modal = document.getElementById('walletConnectModal');
+            const qrCodeElement = document.getElementById('qrCode');
+            
+            // Clear previous QR code
+            qrCodeElement.innerHTML = '';
+            
+            // Create QR code (simplified version - in production use a proper QR library)
+            if (walletConnectProvider && walletConnectProvider.uri) {
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(walletConnectProvider.uri)}`;
+                const img = document.createElement('img');
+                img.src = qrUrl;
+                img.alt = 'WalletConnect QR Code';
+                qrCodeElement.appendChild(img);
+            }
+            
+            modal.style.display = 'flex';
+        }
+
+        // Close WalletConnect Modal
+        function closeWalletConnectModal() {
+            const modal = document.getElementById('walletConnectModal');
+            modal.style.display = 'none';
         }
 
         // Add token to wallet
