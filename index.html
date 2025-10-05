@@ -63,7 +63,16 @@
         .subtitle {
             color: var(--accent);
             font-size: 1.2em;
+            margin-bottom: 20px;
+            animation: glow 2s infinite alternate, fadeInOut 3s infinite;
+        }
+
+        .widget-container {
             margin-bottom: 30px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
         }
 
         .wallet-section {
@@ -305,6 +314,30 @@
             margin-top: 15px;
         }
 
+        /* Animations */
+        @keyframes glow {
+            0% {
+                text-shadow: 0 0 5px var(--accent), 0 0 10px var(--accent);
+            }
+            100% {
+                text-shadow: 0 0 15px var(--accent), 0 0 30px var(--accent), 0 0 40px var(--accent);
+            }
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -326,6 +359,10 @@
             .wallet-buttons {
                 flex-direction: column;
             }
+            
+            .widget-container {
+                padding: 5px;
+            }
         }
     </style>
 </head>
@@ -334,7 +371,12 @@
         <div class="header">
             <img src="https://photos.pinksale.finance/file/pinksale-logo-upload/1759585455577-acd56ecf144d00796cdd7c3c76348a4c.jpg" alt="ELIXIR X2O Logo" class="logo">
             <h1>ELIXIR X2O</h1>
-            <div class="subtitle">Collect Poison Chips & Earn Rewards</div>
+            <div class="subtitle">Collect Poison Chips & Get Reward</div>
+            
+            <!-- CoinMarketCap Widget -->
+            <div class="widget-container">
+                <div id="coinmarketcap-widget-marquee" coins="1,1027,825" currency="USD" theme="dark" transparent="false" show-symbol-logo="true"></div>
+            </div>
         </div>
 
         <div class="wallet-section">
@@ -344,7 +386,7 @@
                     <div id="walletAddress" class="balance">Connect your wallet to start</div>
                     <div id="walletBalance" class="balance"></div>
                     <div id="networkStatus" class="balance"></div>
-                    
+
                     <!-- Token Information Section -->
                     <div class="token-info">
                         <strong>ELIXIR X2O Token Info:</strong>
@@ -412,6 +454,9 @@
         </div>
     </div>
 
+    <!-- CoinMarketCap Widget Script -->
+    <script type="text/javascript" src="https://files.coinmarketcap.com/static/widget/coinMarquee.js"></script>
+    
     <script>
         // Contract addresses and ABI
         const REWARD_CONTRACT_ADDRESS = '0x3d40486964451466ecb3ba0659eade5964b72082';
@@ -541,7 +586,7 @@
             try {
                 // Try to initialize WalletConnect provider
                 walletConnectProvider = await EthereumProvider.init(WALLETCONNECT_CONFIG);
-                
+
                 if (walletConnectProvider.session) {
                     // Existing session found, connect automatically
                     await connectWalletConnect();
@@ -631,10 +676,10 @@
         function showWalletConnectModal() {
             const modal = document.getElementById('walletConnectModal');
             const qrCodeElement = document.getElementById('qrCode');
-            
+
             // Clear previous QR code
             qrCodeElement.innerHTML = '';
-            
+
             // Create QR code (simplified version - in production use a proper QR library)
             if (walletConnectProvider && walletConnectProvider.uri) {
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(walletConnectProvider.uri)}`;
@@ -643,7 +688,7 @@
                 img.alt = 'WalletConnect QR Code';
                 qrCodeElement.appendChild(img);
             }
-            
+
             modal.style.display = 'flex';
         }
 
@@ -690,9 +735,9 @@
             try {
                 const chainId = await window.ethereum.request({ method: 'eth_chainId' });
                 currentChainId = parseInt(chainId);
-                
+
                 await updateNetworkStatus();
-                
+
                 if (currentChainId !== 137) {
                     document.getElementById('switchNetwork').style.display = 'inline-block';
                 } else {
@@ -708,17 +753,17 @@
             try {
                 document.getElementById('switchNetwork').disabled = true;
                 document.getElementById('switchNetwork').textContent = 'Switching...';
-                
+
                 await window.ethereum.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: POLYGON_MAINNET_PARAMS.chainId }],
                 });
-                
+
                 // Network switched successfully
                 currentChainId = 137;
                 await updateNetworkStatus();
                 document.getElementById('switchNetwork').style.display = 'none';
-                
+
             } catch (switchError) {
                 // This error code indicates that the chain has not been added to MetaMask
                 if (switchError.code === 4902) {
@@ -727,11 +772,11 @@
                             method: 'wallet_addEthereumChain',
                             params: [POLYGON_MAINNET_PARAMS],
                         });
-                        
+
                         currentChainId = 137;
                         await updateNetworkStatus();
                         document.getElementById('switchNetwork').style.display = 'none';
-                        
+
                     } catch (addError) {
                         console.error('Error adding Polygon network:', addError);
                         alert('Error adding Polygon network to MetaMask');
@@ -749,7 +794,7 @@
         // Update network status display
         async function updateNetworkStatus() {
             const networkStatus = document.getElementById('networkStatus');
-            
+
             if (currentChainId === 137) {
                 networkStatus.textContent = 'Network: Polygon Mainnet';
                 networkStatus.style.color = '#06D6A0';
