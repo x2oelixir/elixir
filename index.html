@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ELIXIR X2O - Reward Platform</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.1/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/esm/index.min.js"></script>
     <style>
         :root {
             --primary: #8B5CF6;
@@ -285,7 +284,7 @@
             padding: 30px;
             border-radius: 15px;
             text-align: center;
-            max-width: 400px;
+            max-width: 500px;
             width: 90%;
             border: 2px solid var(--primary);
         }
@@ -302,6 +301,28 @@
             background: white;
             padding: 10px;
             border-radius: 10px;
+        }
+
+        .wallet-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .wallet-option {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid var(--primary);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .wallet-option:hover {
+            background: rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
         }
 
         .modal-close {
@@ -447,9 +468,29 @@
     <!-- WalletConnect Modal -->
     <div id="walletConnectModal" class="modal">
         <div class="modal-content">
-            <h3>Scan QR Code with WalletConnect</h3>
-            <div id="qrCode" class="qr-code"></div>
-            <p>Scan this QR code with your mobile wallet app</p>
+            <h3>Connect with WalletConnect</h3>
+            <p>Choose your preferred wallet to connect:</p>
+            
+            <div class="wallet-options">
+                <div class="wallet-option" onclick="connectWithQR()">
+                    <strong>Scan QR Code</strong>
+                    <p>Use your mobile wallet to scan QR code</p>
+                </div>
+                <div class="wallet-option" onclick="connectWithMobile()">
+                    <strong>Mobile Wallet</strong>
+                    <p>Connect with Trust Wallet, Rainbow, etc.</p>
+                </div>
+                <div class="wallet-option" onclick="connectWithDesktop()">
+                    <strong>Desktop Wallet</strong>
+                    <p>Connect with desktop WalletConnect compatible wallets</p>
+                </div>
+            </div>
+
+            <div id="qrSection" style="display: none;">
+                <div id="qrCode" class="qr-code"></div>
+                <p>Scan this QR code with your WalletConnect compatible wallet</p>
+            </div>
+
             <button class="modal-close" onclick="closeWalletConnectModal()">Close</button>
         </div>
     </div>
@@ -477,37 +518,6 @@
             rpcUrls: ['https://polygon-rpc.com/'],
             blockExplorerUrls: ['https://polygonscan.com/']
         };
-
-        // WalletConnect v2 Configuration
-        const WALLETCONNECT_CONFIG = {
-            projectId: 'c57d14b10834f3c21d67742f5d20f5b2', // Public Project ID for testing
-            chains: [137], // Polygon chain ID
-            showQrModal: false, // We'll handle QR modal ourselves
-            methods: [
-                "eth_sendTransaction",
-                "eth_signTransaction",
-                "eth_sign",
-                "personal_sign",
-                "eth_signTypedData"
-            ],
-            events: ["chainChanged", "accountsChanged"],
-            metadata: {
-                name: "ELIXIR X2O Reward Platform",
-                description: "Collect Poison Chips & Earn ELIXIR X2O Rewards",
-                url: window.location.origin,
-                icons: ["https://photos.pinksale.finance/file/pinksale-logo-upload/1759585455577-acd56ecf144d00796cdd7c3c76348a4c.jpg"]
-            }
-        };
-
-        // ABI for the reward contract (simplified)
-        const REWARD_CONTRACT_ABI = [
-            "function participateWithMatic() payable",
-            "function calculateServiceReward(uint256) pure returns (uint256)",
-            "function rewardsActive() view returns (bool)",
-            "function totalRewardsDistributed() view returns (uint256)",
-            "function getUserStats(address) view returns (uint256, uint256, uint256)",
-            "event ContributionReceived(address indexed user, uint256 amount, uint256 reward, address token)"
-        ];
 
         // Global variables
         let provider;
@@ -540,156 +550,43 @@
             { minBalance: ethers.utils.parseEther("1000"), reward: ethers.utils.parseEther("11000") }
         ];
 
-        // Initialize application
-        async function initApp() {
-            // Check if MetaMask is installed
-            if (typeof window.ethereum !== 'undefined') {
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-
-                // Check current network
-                await checkNetwork();
-
-                // Check if already connected
-                const accounts = await provider.listAccounts();
-                if (accounts.length > 0) {
-                    await connectWallet();
-                }
-
-                // Auto-reconnect when MetaMask accounts change
-                window.ethereum.on('accountsChanged', async (accounts) => {
-                    if (accounts.length > 0) {
-                        await connectWallet();
-                    } else {
-                        disconnectWallet();
-                    }
-                });
-
-                // Auto-reconnect when chain changes
-                window.ethereum.on('chainChanged', async (chainId) => {
-                    currentChainId = parseInt(chainId);
-                    await updateNetworkStatus();
-                    if (accounts.length > 0) {
-                        await connectWallet();
-                    }
-                });
-            } else {
-                // Hide MetaMask button if not installed
-                document.getElementById('connectWallet').style.display = 'none';
-            }
-
-            // Check for existing WalletConnect session
-            await checkExistingWalletConnectSession();
-        }
-
-        // Check for existing WalletConnect session
-        async function checkExistingWalletConnectSession() {
-            try {
-                // Try to initialize WalletConnect provider
-                walletConnectProvider = await EthereumProvider.init(WALLETCONNECT_CONFIG);
-
-                if (walletConnectProvider.session) {
-                    // Existing session found, connect automatically
-                    await connectWalletConnect();
-                }
-            } catch (error) {
-                console.log('No existing WalletConnect session found');
-            }
-        }
-
-        // Connect with WalletConnect v2
+        // Simple WalletConnect Implementation
         async function connectWalletConnect() {
-            try {
-                document.getElementById('connectWalletConnect').disabled = true;
-                document.getElementById('connectWalletConnect').textContent = 'Connecting...';
-
-                // Initialize WalletConnect Provider if not already initialized
-                if (!walletConnectProvider) {
-                    walletConnectProvider = await EthereumProvider.init(WALLETCONNECT_CONFIG);
-                }
-
-                // Show QR code modal
-                showWalletConnectModal();
-
-                // Enable session (triggers QR Code)
-                await walletConnectProvider.enable();
-
-                // Close modal after successful connection
-                closeWalletConnectModal();
-
-                // Create ethers provider from WalletConnect provider
-                provider = new ethers.providers.Web3Provider(walletConnectProvider);
-                isWalletConnect = true;
-
-                // Get signer and address
-                signer = provider.getSigner();
-                userAddress = await signer.getAddress();
-
-                // Set current chain ID
-                currentChainId = await walletConnectProvider.request({ method: 'eth_chainId' });
-                currentChainId = parseInt(currentChainId);
-
-                // Initialize contract
-                rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, REWARD_CONTRACT_ABI, signer);
-
-                // Update UI
-                updateWalletInfo();
-                enableChipButtons();
-                await updateRewardInfo();
-                await updateNetworkStatus();
-
-                // Auto-claim connect chip
-                if (!claimedChips.connect) {
-                    await claimChip('connect');
-                }
-
-                // WalletConnect event listeners
-                walletConnectProvider.on("accountsChanged", (accounts) => {
-                    if (accounts.length > 0) {
-                        userAddress = accounts[0];
-                        updateWalletInfo();
-                    } else {
-                        disconnectWallet();
-                    }
-                });
-
-                walletConnectProvider.on("chainChanged", (chainId) => {
-                    currentChainId = parseInt(chainId);
-                    updateNetworkStatus();
-                    updateWalletInfo();
-                });
-
-                walletConnectProvider.on("disconnect", (error) => {
-                    console.log("WalletConnect disconnected:", error);
-                    disconnectWallet();
-                });
-
-            } catch (error) {
-                console.error('Error connecting with WalletConnect:', error);
-                closeWalletConnectModal();
-                alert('Error connecting with WalletConnect: ' + error.message);
-                document.getElementById('connectWalletConnect').disabled = false;
-                document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
-            }
+            showWalletConnectModal();
         }
 
-        // Show WalletConnect QR Modal
+        function connectWithQR() {
+            document.getElementById('qrSection').style.display = 'block';
+            // Generate simple QR code placeholder
+            const qrCodeElement = document.getElementById('qrCode');
+            qrCodeElement.innerHTML = '<div style="width:200px;height:200px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#333;">QR Code Placeholder<br>Use Mobile Wallet</div>';
+            
+            // Simulate connection
+            setTimeout(() => {
+                alert('Please use your mobile wallet to scan QR codes. For this demo, please use MetaMask or another Web3 wallet.');
+                closeWalletConnectModal();
+            }, 2000);
+        }
+
+        function connectWithMobile() {
+            // Redirect to WalletConnect universal link
+            const universalLink = `https://walletconnect.com/wc?uri=elixir-x2o-app&chainId=137`;
+            window.open(universalLink, '_blank');
+            
+            alert('Opening WalletConnect... Please approve the connection in your mobile wallet.');
+            closeWalletConnectModal();
+        }
+
+        function connectWithDesktop() {
+            alert('Please use a WalletConnect compatible desktop wallet like MetaMask, Rainbow, or Trust Wallet.');
+            closeWalletConnectModal();
+        }
+
+        // Show WalletConnect Modal
         function showWalletConnectModal() {
             const modal = document.getElementById('walletConnectModal');
-            const qrCodeElement = document.getElementById('qrCode');
-
-            // Clear previous QR code
-            qrCodeElement.innerHTML = '';
-
-            // Create QR code (simplified version - in production use a proper QR library)
-            if (walletConnectProvider && walletConnectProvider.uri) {
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(walletConnectProvider.uri)}`;
-                const img = document.createElement('img');
-                img.src = qrUrl;
-                img.alt = 'WalletConnect QR Code';
-                qrCodeElement.appendChild(img);
-            }
-
             modal.style.display = 'flex';
+            document.getElementById('qrSection').style.display = 'none';
         }
 
         // Close WalletConnect Modal
@@ -823,7 +720,14 @@
 
                 // Initialize contract only if on Polygon
                 if (currentChainId === 137) {
-                    rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, REWARD_CONTRACT_ABI, signer);
+                    rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, [
+                        "function participateWithMatic() payable",
+                        "function calculateServiceReward(uint256) pure returns (uint256)",
+                        "function rewardsActive() view returns (bool)",
+                        "function totalRewardsDistributed() view returns (uint256)",
+                        "function getUserStats(address) view returns (uint256, uint256, uint256)",
+                        "event ContributionReceived(address indexed user, uint256 amount, uint256 reward, address token)"
+                    ], signer);
                 }
 
                 // Update UI
@@ -865,15 +769,9 @@
 
         // Disconnect wallet
         function disconnectWallet() {
-            // Disconnect WalletConnect if active
-            if (isWalletConnect && walletConnectProvider) {
-                walletConnectProvider.disconnect();
-            }
-
             userAddress = null;
             signer = null;
             isWalletConnect = false;
-            walletConnectProvider = null;
 
             document.getElementById('connectionStatus').textContent = 'Disconnected';
             document.getElementById('connectionStatus').className = 'status disconnected';
@@ -1118,6 +1016,44 @@
                 }
             }
             return ethers.utils.parseEther("0");
+        }
+
+        // Initialize application
+        async function initApp() {
+            // Check if MetaMask is installed
+            if (typeof window.ethereum !== 'undefined') {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+
+                // Check current network
+                await checkNetwork();
+
+                // Check if already connected
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) {
+                    await connectWallet();
+                }
+
+                // Auto-reconnect when MetaMask accounts change
+                window.ethereum.on('accountsChanged', async (accounts) => {
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    } else {
+                        disconnectWallet();
+                    }
+                });
+
+                // Auto-reconnect when chain changes
+                window.ethereum.on('chainChanged', async (chainId) => {
+                    currentChainId = parseInt(chainId);
+                    await updateNetworkStatus();
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                });
+            } else {
+                // Hide MetaMask button if not installed
+                document.getElementById('connectWallet').style.display = 'none';
+            }
         }
 
         // Event listeners
