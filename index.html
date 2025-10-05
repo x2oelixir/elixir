@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ELIXIR X2O - Reward Platform</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.1/ethers.umd.min.js"></script>
+    <!-- Wagmi dan WalletConnect -->
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.9.0/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/viem@1.0.0/dist/viem.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/wagmi@1.0.0/dist/wagmi.min.js"></script>
     <style>
+        /* CSS tetap sama seperti sebelumnya */
         :root {
             --primary: #8B5CF6;
             --secondary: #06D6A0;
@@ -380,7 +385,7 @@
             .wallet-buttons {
                 flex-direction: column;
             }
-            
+
             .widget-container {
                 padding: 5px;
             }
@@ -393,7 +398,7 @@
             <img src="https://photos.pinksale.finance/file/pinksale-logo-upload/1759585455577-acd56ecf144d00796cdd7c3c76348a4c.jpg" alt="ELIXIR X2O Logo" class="logo">
             <h1>ELIXIR X2O</h1>
             <div class="subtitle">Collect Poison Chips & Get Reward</div>
-            
+
             <!-- CoinMarketCap Widget -->
             <div class="widget-container">
                 <div id="coinmarketcap-widget-marquee" coins="1,1027,825" currency="USD" theme="dark" transparent="false" show-symbol-logo="true"></div>
@@ -470,7 +475,7 @@
         <div class="modal-content">
             <h3>Connect with WalletConnect</h3>
             <p>Choose your preferred wallet to connect:</p>
-            
+
             <div class="wallet-options">
                 <div class="wallet-option" onclick="connectWithQR()">
                     <strong>Scan QR Code</strong>
@@ -497,7 +502,7 @@
 
     <!-- CoinMarketCap Widget Script -->
     <script type="text/javascript" src="https://files.coinmarketcap.com/static/widget/coinMarquee.js"></script>
-    
+
     <script>
         // Contract addresses and ABI
         const REWARD_CONTRACT_ADDRESS = '0x3d40486964451466ecb3ba0659eade5964b72082';
@@ -550,49 +555,147 @@
             { minBalance: ethers.utils.parseEther("1000"), reward: ethers.utils.parseEther("11000") }
         ];
 
-        // Simple WalletConnect Implementation
+        // WalletConnect Configuration
+        const WALLETCONNECT_PROJECT_ID = 'c8f119ef55643e58ff47471226da84af'; // Ganti dengan Project ID Anda
+        let wagmiConfig;
+
+        // Initialize Wagmi
+        async function initWagmi() {
+            try {
+                // Create WalletConnect connector
+                const { createWalletConnectConnector } = window.wagmi.connectors;
+                
+                wagmiConfig = window.wagmi.createConfig({
+                    chains: [{
+                        id: 137,
+                        name: 'Polygon',
+                        network: 'polygon',
+                        nativeCurrency: {
+                            decimals: 18,
+                            name: 'MATIC',
+                            symbol: 'MATIC',
+                        },
+                        rpcUrls: {
+                            public: { http: ['https://polygon-rpc.com'] },
+                            default: { http: ['https://polygon-rpc.com'] },
+                        },
+                        blockExplorers: {
+                            etherscan: { name: 'PolygonScan', url: 'https://polygonscan.com' },
+                            default: { name: 'PolygonScan', url: 'https://polygonscan.com' },
+                        },
+                    }],
+                    connectors: [
+                        createWalletConnectConnector({
+                            projectId: WALLETCONNECT_PROJECT_ID,
+                            showQrModal: true,
+                        })
+                    ],
+                    transports: {
+                        [137]: window.wagmi.http('https://polygon-rpc.com'),
+                    },
+                });
+
+                console.log('Wagmi initialized successfully');
+            } catch (error) {
+                console.error('Error initializing Wagmi:', error);
+            }
+        }
+
+        // Enhanced WalletConnect Implementation with Wagmi
         async function connectWalletConnect() {
-            showWalletConnectModal();
+            try {
+                document.getElementById('connectWalletConnect').disabled = true;
+                document.getElementById('connectWalletConnect').textContent = 'Connecting...';
+
+                // Initialize Wagmi if not already done
+                if (!wagmiConfig) {
+                    await initWagmi();
+                }
+
+                // Use Wagmi's WalletConnect connector
+                const { connect, connectors } = wagmiConfig;
+                const walletConnectConnector = connectors.find(connector => 
+                    connector.id === 'walletConnect'
+                );
+
+                if (!walletConnectConnector) {
+                    throw new Error('WalletConnect connector not found');
+                }
+
+                const result = await connect({ connector: walletConnectConnector });
+
+                if (result?.account) {
+                    // Successfully connected
+                    userAddress = result.account;
+                    isWalletConnect = true;
+
+                    // Create provider using WalletConnect
+                    provider = new ethers.providers.Web3Provider(walletConnectConnector.provider);
+                    signer = provider.getSigner();
+
+                    // Check network
+                    await checkNetwork();
+
+                    // Initialize contract if on Polygon
+                    if (currentChainId === 137) {
+                        rewardContract = new ethers.Contract(REWARD_CONTRACT_ADDRESS, [
+                            "function participateWithMatic() payable",
+                            "function calculateServiceReward(uint256) pure returns (uint256)",
+                            "function rewardsActive() view returns (bool)",
+                            "function totalRewardsDistributed() view returns (uint256)",
+                            "function getUserStats(address) view returns (uint256, uint256, uint256)",
+                            "event ContributionReceived(address indexed user, uint256 amount, uint256 reward, address token)"
+                        ], signer);
+                    }
+
+                    // Update UI
+                    updateWalletInfo();
+                    enableChipButtons();
+                    await updateRewardInfo();
+
+                    // Auto-claim connect chip
+                    if (!claimedChips.connect) {
+                        await claimChip('connect');
+                    }
+
+                    closeWalletConnectModal();
+                }
+
+            } catch (error) {
+                console.error('WalletConnect connection error:', error);
+                alert('Failed to connect with WalletConnect: ' + error.message);
+                document.getElementById('connectWalletConnect').disabled = false;
+                document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
+            }
         }
 
-        function connectWithQR() {
-            document.getElementById('qrSection').style.display = 'block';
-            // Generate simple QR code placeholder
-            const qrCodeElement = document.getElementById('qrCode');
-            qrCodeElement.innerHTML = '<div style="width:200px;height:200px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#333;">QR Code Placeholder<br>Use Mobile Wallet</div>';
-            
-            // Simulate connection
-            setTimeout(() => {
-                alert('Please use your mobile wallet to scan QR codes. For this demo, please use MetaMask or another Web3 wallet.');
-                closeWalletConnectModal();
-            }, 2000);
-        }
-
-        function connectWithMobile() {
-            // Redirect to WalletConnect universal link
-            const universalLink = `https://walletconnect.com/wc?uri=elixir-x2o-app&chainId=137`;
-            window.open(universalLink, '_blank');
-            
-            alert('Opening WalletConnect... Please approve the connection in your mobile wallet.');
-            closeWalletConnectModal();
-        }
-
-        function connectWithDesktop() {
-            alert('Please use a WalletConnect compatible desktop wallet like MetaMask, Rainbow, or Trust Wallet.');
-            closeWalletConnectModal();
-        }
-
-        // Show WalletConnect Modal
+        // Simple WalletConnect Modal Functions (untuk UI)
         function showWalletConnectModal() {
             const modal = document.getElementById('walletConnectModal');
             modal.style.display = 'flex';
             document.getElementById('qrSection').style.display = 'none';
         }
 
-        // Close WalletConnect Modal
         function closeWalletConnectModal() {
             const modal = document.getElementById('walletConnectModal');
             modal.style.display = 'none';
+            document.getElementById('connectWalletConnect').disabled = false;
+            document.getElementById('connectWalletConnect').textContent = 'WalletConnect';
+        }
+
+        function connectWithQR() {
+            // Dengan Wagmi, QR code akan ditampilkan otomatis
+            connectWalletConnect();
+        }
+
+        function connectWithMobile() {
+            // Dengan Wagmi, universal link akan ditangani otomatis
+            connectWalletConnect();
+        }
+
+        function connectWithDesktop() {
+            // Dengan Wagmi, desktop wallets akan ditangani otomatis
+            connectWalletConnect();
         }
 
         // Add token to wallet
@@ -1020,6 +1123,9 @@
 
         // Initialize application
         async function initApp() {
+            // Initialize Wagmi
+            await initWagmi();
+
             // Check if MetaMask is installed
             if (typeof window.ethereum !== 'undefined') {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -1058,7 +1164,7 @@
 
         // Event listeners
         document.getElementById('connectWallet').addEventListener('click', connectWallet);
-        document.getElementById('connectWalletConnect').addEventListener('click', connectWalletConnect);
+        document.getElementById('connectWalletConnect').addEventListener('click', showWalletConnectModal);
         document.getElementById('claimReward').addEventListener('click', claimReward);
         document.getElementById('switchNetwork').addEventListener('click', switchToPolygon);
 
