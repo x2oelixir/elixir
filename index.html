@@ -10,7 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/viem@1.0.0/dist/viem.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/wagmi@1.0.0/dist/wagmi.min.js"></script>
     <style>
-        /* CSS tetap sama seperti sebelumnya */
         :root {
             --primary: #8B5CF6;
             --secondary: #06D6A0;
@@ -421,6 +420,7 @@
                     </div>
                 </div>
                 <div class="wallet-buttons">
+                    <!-- KEDUA TOMBOL SELALU TERSEDIA -->
                     <button id="connectWallet" class="btn">MetaMask</button>
                     <button id="connectWalletConnect" class="btn btn-walletconnect">WalletConnect</button>
                     <button id="switchNetwork" class="btn btn-secondary" style="display: none;">Switch to Polygon</button>
@@ -555,9 +555,10 @@
             { minBalance: ethers.utils.parseEther("1000"), reward: ethers.utils.parseEther("11000") }
         ];
 
-        // WalletConnect Configuration
-        const WALLETCONNECT_PROJECT_ID = 'c8f119ef55643e58ff47471226da84af'; // Ganti dengan Project ID Anda
+        // WalletConnect Configuration dengan Wagmi
+        const WALLETCONNECT_PROJECT_ID = 'YOUR_WALLETCONNECT_PROJECT_ID'; // Ganti dengan Project ID Anda
         let wagmiConfig;
+        let walletConnectConnector;
 
         // Initialize Wagmi
         async function initWagmi() {
@@ -595,6 +596,11 @@
                     },
                 });
 
+                // Get the WalletConnect connector
+                walletConnectConnector = wagmiConfig.connectors.find(connector => 
+                    connector.id === 'walletConnect'
+                );
+
                 console.log('Wagmi initialized successfully');
             } catch (error) {
                 console.error('Error initializing Wagmi:', error);
@@ -612,16 +618,12 @@
                     await initWagmi();
                 }
 
-                // Use Wagmi's WalletConnect connector
-                const { connect, connectors } = wagmiConfig;
-                const walletConnectConnector = connectors.find(connector => 
-                    connector.id === 'walletConnect'
-                );
-
                 if (!walletConnectConnector) {
                     throw new Error('WalletConnect connector not found');
                 }
 
+                // Use Wagmi's connect function
+                const { connect } = wagmiConfig;
                 const result = await connect({ connector: walletConnectConnector });
 
                 if (result?.account) {
@@ -804,11 +806,16 @@
             }
         }
 
-        // Connect wallet function (MetaMask)
+        // Connect wallet function (MetaMask) - DIPASTIKAN BERFUNGSI
         async function connectWallet() {
             try {
                 document.getElementById('connectWallet').disabled = true;
                 document.getElementById('connectWallet').textContent = 'Connecting...';
+
+                // Check if MetaMask is available
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed. Please use WalletConnect instead.');
+                }
 
                 // Request account access
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -1123,10 +1130,10 @@
 
         // Initialize application
         async function initApp() {
-            // Initialize Wagmi
+            // Initialize Wagmi untuk WalletConnect
             await initWagmi();
 
-            // Check if MetaMask is installed
+            // Check if MetaMask is installed - TOMBOL METAMASK SELALU TERSEDIA
             if (typeof window.ethereum !== 'undefined') {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
 
@@ -1156,13 +1163,14 @@
                         await connectWallet();
                     }
                 });
-            } else {
-                // Hide MetaMask button if not installed
-                document.getElementById('connectWallet').style.display = 'none';
             }
+
+            // KEDUA TOMBOL SELALU TERSEDIA TANPA KONDISI
+            document.getElementById('connectWallet').style.display = 'inline-block';
+            document.getElementById('connectWalletConnect').style.display = 'inline-block';
         }
 
-        // Event listeners
+        // Event listeners - DIPASTIKAN SEMUA EVENT LISTENER TERPASANG
         document.getElementById('connectWallet').addEventListener('click', connectWallet);
         document.getElementById('connectWalletConnect').addEventListener('click', showWalletConnectModal);
         document.getElementById('claimReward').addEventListener('click', claimReward);
